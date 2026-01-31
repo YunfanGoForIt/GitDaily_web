@@ -1,0 +1,5 @@
+{
+  "name": "GitDaily",
+  "description": "A Git-inspired project management tool that visualizes life and projects as branches and commits on a timeline.",
+  "requestFramePermissions": []
+}
