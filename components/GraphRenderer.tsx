@@ -50,7 +50,6 @@ const getBranchDepth = (branchId: string, allBranches: Branch[]): number => {
 };
 
 // Helper to determine spacing gap based on hierarchy level
-// Updated for more compact layout and spacing multiplier
 const getHierarchyGap = (depth: number, isMini: boolean, spacingMultiplier: number) => {
     if (isMini) return 20 * spacingMultiplier; // Very compact for mini branches
 
@@ -480,8 +479,16 @@ const GraphRenderer: React.FC<GraphRendererProps> = ({
             const isLeftOfCenter = node.x < centerX;
             const labelX = isLeftOfCenter ? node.x - 12 : node.x + 12;
             const textAnchor = isLeftOfCenter ? "end" : "start";
-            const rectX = isLeftOfCenter ? -140 : -4;
             
+            // Adaptive Label Background
+            const charWidth = 7; 
+            const padding = 16;
+            const titleLength = node.title.length > 20 ? 21 : node.title.length;
+            const adaptiveWidth = Math.max(40, titleLength * charWidth + padding);
+            
+            // If left aligned, box should extend to the left of 0. If right aligned, extend to right.
+            const rectX = isLeftOfCenter ? -(adaptiveWidth + 4) : -4;
+
             const displayColor = isGhost ? '#d1d5db' : branchColor;
             const opacity = isGhost ? 0.6 : 1;
             
@@ -508,7 +515,7 @@ const GraphRenderer: React.FC<GraphRendererProps> = ({
                 
                 {!node.isMini && (
                     <g transform={`translate(${labelX}, ${node.y + 4})`}>
-                        <rect x={rectX} y="-14" width="144" height="24" rx="4" fill="white" fillOpacity="0.8" className="shadow-sm" />
+                        <rect x={rectX} y="-14" width={adaptiveWidth} height="24" rx="4" fill="white" fillOpacity="0.8" className="shadow-sm" />
                         <text 
                             fontSize="9" 
                             fill={isGhost ? "#9ca3af" : "#6b7280"} 

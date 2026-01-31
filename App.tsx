@@ -10,6 +10,7 @@ import EditProfilePage from './pages/EditProfilePage';
 import NewBranchModal from './components/NewBranchModal';
 import NewTaskModal from './components/NewTaskModal';
 import TaskDetailPanel from './components/TaskDetailPanel';
+import CommitMessageModal from './components/CommitMessageModal';
 import { Task, AppView, Branch, UserProfile, TaskStatus } from './types';
 import { INITIAL_BRANCHES, INITIAL_TASKS, INITIAL_USER } from './constants';
 
@@ -22,6 +23,10 @@ const App: React.FC = () => {
   
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isTaskDetailOpen, setIsTaskDetailOpen] = useState(false);
+
+  // Commit Message Modal State
+  const [isCommitModalOpen, setIsCommitModalOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<{ type: 'task' | 'merge', id: string } | null>(null);
 
   // Application Data State
   const [tasks, setTasks] = useState(INITIAL_TASKS);
@@ -43,12 +48,23 @@ const App: React.FC = () => {
     setCurrentView('branch-detail');
   };
 
+  // Triggered when user clicks the checkbox in lists
   const handleToggleTask = (taskId: string) => {
-    setTasks(prev => prev.map(t => 
-        t.id === taskId 
-        ? { ...t, status: t.status === 'COMPLETED' ? 'PLANNED' : 'COMPLETED' }
-        : t
-    ));
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    if (task.status === TaskStatus.PLANNED) {
+        // Going to COMPLETED: Require message
+        setPendingAction({ type: 'task', id: taskId });
+        setIsCommitModalOpen(true);
+    } else {
+        // Going back to PLANNED: No message needed
+        setTasks(prev => prev.map(t => 
+            t.id === taskId 
+            ? { ...t, status: TaskStatus.PLANNED }
+            : t
+        ));
+    }
   };
 
   const handleCreateTask = (taskData: Omit<Task, 'id'>) => {
@@ -59,7 +75,21 @@ const App: React.FC = () => {
       setTasks(prev => [newTask, ...prev]);
   };
 
+  // Triggered from Task Detail Panel
   const handleUpdateTask = (taskId: string, updates: Partial<Task>) => {
+      // Intercept status change to COMPLETED
+      if (updates.status === TaskStatus.COMPLETED) {
+         setPendingAction({ type: 'task', id: taskId });
+         setIsCommitModalOpen(true);
+         // We do NOT apply the update yet. The modal confirm will handle it.
+         // Note: If there were *other* updates (like title change) along with status, 
+         // this simplistic interception might drop them if we don't store them.
+         // But TaskDetailPanel typically calls status toggle separately or sends full object.
+         // For safety, we can apply non-status updates immediately? 
+         // For now, assume the user toggled status specifically.
+         return; 
+      }
+
       setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
   };
 
@@ -86,19 +116,13 @@ const App: React.FC = () => {
       const branchToDelete = branches.find(b => b.id === branchId);
       if (!branchToDelete) return;
 
-      // 1. Re-parent any children of this branch to prevent graph breakage
-      // If the deleted branch had a parent, children move to that parent. 
-      // If it was a root branch (parent=main or null), children move to main.
       const newParentId = branchToDelete.parentId || 'main';
 
       setBranches(prev => {
-          // Remove the branch
           const filtered = prev.filter(b => b.id !== branchId);
-          // Update children
           return filtered.map(b => b.parentId === branchId ? { ...b, parentId: newParentId } : b);
       });
 
-      // 2. Delete all tasks associated with this branch
       setTasks(prev => prev.filter(t => t.branchId !== branchId));
 
       setCurrentView('graph');
@@ -112,7 +136,6 @@ const App: React.FC = () => {
             : b
       ));
       
-      // Optionally create a "Restart" marker task
       const restartTask: Task = {
           id: `restart-${Date.now()}`,
           branchId: branchId,
@@ -126,32 +149,51 @@ const App: React.FC = () => {
       setCurrentView('graph');
   };
 
-  const handleMergeBranch = (branchId: string) => {
-      const branch = branches.find(b => b.id === branchId);
-      if (!branch) return;
-
-      const parentId = branch.parentId || 'main';
-      
-      // 1. Create a Merge Commit on Parent
-      const mergeTask: Task = {
-          id: `m${Date.now()}`,
-          branchId: parentId,
-          title: `Merge branch '${branch.name}'`,
-          description: `Merged ${branch.name} into ${parentId}`,
-          date: new Date().toISOString().split('T')[0],
-          status: TaskStatus.COMPLETED,
-          isMergeCommit: true
-      };
-
-      // 2. Add task
-      setTasks(prev => [mergeTask, ...prev]);
-
-      // 3. Update branch status and set target
-      setBranches(prev => prev.map(b => b.id === branchId ? { ...b, status: 'merged', mergeTargetNodeId: mergeTask.id } : b));
-      
-      // 4. Return to graph
-      setCurrentView('graph');
+  // Intercept Merge to require message
+  const handleMergeBranchRequest = (branchId: string) => {
+      setPendingAction({ type: 'merge', id: branchId });
+      setIsCommitModalOpen(true);
   }
+
+  // Finalize actions after Modal Confirm
+  const onCommitMessageConfirmed = (message: string) => {
+      if (!pendingAction) return;
+
+      if (pendingAction.type === 'task') {
+          // Complete the Task
+          setTasks(prev => prev.map(t => 
+             t.id === pendingAction.id 
+             ? { ...t, status: TaskStatus.COMPLETED, commitMessage: message } 
+             : t
+          ));
+          // If the detail panel is open for this task, force an update or close it?
+          // React state update will reflect in panel if it consumes the `task` prop correctly.
+      } else if (pendingAction.type === 'merge') {
+          // Perform Merge
+          const branchId = pendingAction.id;
+          const branch = branches.find(b => b.id === branchId);
+          if (branch) {
+            const parentId = branch.parentId || 'main';
+            
+            const mergeTask: Task = {
+                id: `m${Date.now()}`,
+                branchId: parentId,
+                title: `Merge branch '${branch.name}'`,
+                description: `Merged ${branch.name} into ${parentId}`,
+                date: new Date().toISOString().split('T')[0],
+                status: TaskStatus.COMPLETED,
+                isMergeCommit: true,
+                commitMessage: message // Add the merge message here
+            };
+
+            setTasks(prev => [mergeTask, ...prev]);
+            setBranches(prev => prev.map(b => b.id === branchId ? { ...b, status: 'merged', mergeTargetNodeId: mergeTask.id } : b));
+            setCurrentView('graph');
+          }
+      }
+
+      setPendingAction(null);
+  };
 
   const handleUpdateProfile = (updatedUser: UserProfile) => {
       setUser(updatedUser);
@@ -189,7 +231,7 @@ const App: React.FC = () => {
                 onToggleTask={handleToggleTask}
                 onArchive={handleArchiveBranch}
                 onDelete={handleDeleteBranch}
-                onMerge={handleMergeBranch}
+                onMerge={handleMergeBranchRequest}
                 branchSpacing={branchSpacing}
             />
         );
@@ -270,10 +312,18 @@ const App: React.FC = () => {
       <TaskDetailPanel 
         isOpen={isTaskDetailOpen}
         onClose={() => { setIsTaskDetailOpen(false); setSelectedTask(null); }}
-        task={selectedTask}
+        task={selectedTask ? tasks.find(t => t.id === selectedTask.id) || null : null} // Ensure we pass the latest task state
         branches={branches}
         onSave={handleUpdateTask}
         onDelete={handleDeleteTask}
+      />
+
+      {/* Commit Message Modal */}
+      <CommitMessageModal 
+        isOpen={isCommitModalOpen}
+        onClose={() => { setIsCommitModalOpen(false); setPendingAction(null); }}
+        onConfirm={onCommitMessageConfirmed}
+        title={pendingAction?.type === 'merge' ? "Merge Branch Reflection" : "Task Completion Reflection"}
       />
     </div>
   );

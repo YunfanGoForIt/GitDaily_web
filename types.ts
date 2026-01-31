@@ -1,3 +1,4 @@
+
 export enum TaskStatus {
   PLANNED = 'PLANNED', // git add (grey)
   COMPLETED = 'COMPLETED', // git commit (colored)
@@ -34,6 +35,7 @@ export interface Task {
   date: string; // ISO Date
   status: TaskStatus;
   isMergeCommit?: boolean;
+  commitMessage?: string; // Reflection/Log message upon completion
 }
 
 export interface UserStats {
