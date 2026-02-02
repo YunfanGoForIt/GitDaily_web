@@ -153,14 +153,14 @@ https://random-uuid.trycloudflare.com -> http://localhost:3000
 ```dockerfile
 FROM node:20-alpine
 
+# 安装编译依赖（better-sqlite3 需要）
+RUN apk add --no-cache python3 make g++
+
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --only=production
 
-# 构建前端
-RUN npm run build
-
-# 复制数据库目录
+COPY . .
 COPY data ./data
 
 EXPOSE 3001
@@ -169,7 +169,7 @@ CMD ["npm", "run", "server"]
 
 ```bash
 docker build -t gitdaily .
-docker run -p 3001:3001 gitdaily
+docker run -p 3001:3001 -v gitdaily_data:/app/data gitdaily
 ```
 
 然后用 nginx 反向代理或 cloudflared 暴露。
