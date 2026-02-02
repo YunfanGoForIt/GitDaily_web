@@ -4,9 +4,7 @@
 
 **像管理 Git 分支一样管理你的生活和项目**
 
-<img src="https://raw.githubusercontent.com/yunfan/GitDaily_web/main/screenshots/heatmap.png" alt="GitDaily Heatmap" width="600" />
 
-</div>
 
 ---
 
@@ -18,7 +16,7 @@ GitDaily 源于一个核心洞察：**人生如 Git**。
 - **Main 分支** - 主时间线，代表人生主线
 - **Feature Branches** - 平行项目、生活尝试
 - **Commits** - 每一个有意义的节点
-- **Merge Commits** - 完成阶段性目标后的整合
+- **Merge Branch** - 完成阶段性目标后的整合
 
 GitDaily 将这些概念可视化，让你能：
 
