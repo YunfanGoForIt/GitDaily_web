@@ -33,8 +33,10 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
 
   const handleToggleStatus = () => {
       const newStatus = isCompleted ? TaskStatus.PLANNED : TaskStatus.COMPLETED;
+      const newDate = newStatus === TaskStatus.COMPLETED ? new Date().toISOString().split('T')[0] : date;
       setStatus(newStatus);
-      onSave(task.id, { status: newStatus });
+      setDate(newDate);
+      onSave(task.id, { status: newStatus, date: newDate });
   };
 
   const handleBlurSave = () => {
@@ -98,10 +100,14 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({ isOpen, onClose, task
                 <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Due Date</label>
                 <div className="flex items-center bg-gray-50 p-3 rounded-xl border border-gray-100">
                     <Calendar size={18} className="text-gray-400 mr-3" />
-                    <input 
-                        type="date" 
+                    <input
+                        type="date"
                         value={date}
-                        onChange={(e) => { setDate(e.target.value); handleBlurSave(); }}
+                        onChange={(e) => {
+                            const newDate = e.target.value;
+                            setDate(newDate);
+                            onSave(task.id, { date: newDate });
+                        }}
                         className="bg-transparent border-none focus:ring-0 text-gray-700 font-medium w-full p-0"
                     />
                 </div>

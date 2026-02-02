@@ -13,11 +13,12 @@ interface BranchDetailPageProps {
   onArchive: (branchId: string) => void;
   onDelete: (branchId: string) => void;
   onMerge: (branchId: string) => void;
+  onNewTask: () => void;
   branchSpacing: number;
 }
 
-const BranchDetailPage: React.FC<BranchDetailPageProps> = ({ 
-    branchId, tasks, branches, onBack, onTaskClick, onToggleTask, onArchive, onDelete, onMerge, branchSpacing
+const BranchDetailPage: React.FC<BranchDetailPageProps> = ({
+    branchId, tasks, branches, onBack, onTaskClick, onToggleTask, onArchive, onDelete, onMerge, onNewTask, branchSpacing
 }) => {
   const [showMenu, setShowMenu] = useState(false);
   const branch = branches.find(b => b.id === branchId);
@@ -182,8 +183,8 @@ const BranchDetailPage: React.FC<BranchDetailPageProps> = ({
                         </div>
                     );
                 })}
-                <button 
-                    onClick={() => {/* Trigger new task modal via parent prop if connected */}}
+                <button
+                    onClick={onNewTask}
                     className="w-full py-3 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 font-medium hover:border-gray-300 hover:text-gray-500 transition-colors"
                 >
                     + Add Task to {branch.name}

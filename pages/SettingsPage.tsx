@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, Moon, Trash2, Bell, Shield, Sliders } from 'lucide-react';
+import { ArrowLeft, Moon, Trash2, Bell, Shield, Sliders, Grid } from 'lucide-react';
 import { AppView } from '../types';
 
 interface SettingsPageProps {
@@ -7,14 +7,23 @@ interface SettingsPageProps {
   onResetData: () => void;
   branchSpacing: number;
   onBranchSpacingChange: (val: number) => void;
+  heatmapCellSize: number;
+  onHeatmapCellSizeChange: (val: number) => void;
 }
 
-const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, onResetData, branchSpacing, onBranchSpacingChange }) => {
+const SettingsPage: React.FC<SettingsPageProps> = ({
+  onNavigate,
+  onResetData,
+  branchSpacing,
+  onBranchSpacingChange,
+  heatmapCellSize,
+  onHeatmapCellSizeChange
+}) => {
   return (
     <div className="h-full bg-gray-50 flex flex-col p-6 overflow-y-auto no-scrollbar">
        {/* Header */}
        <div className="flex items-center mb-8">
-        <button 
+        <button
           onClick={() => onNavigate('me')}
           className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-full mr-2"
         >
@@ -24,7 +33,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, onResetData, br
       </div>
 
       <div className="space-y-6">
-        
+
         {/* Graph Layout Section */}
         <section>
           <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3 ml-1">Graph Layout</h2>
@@ -38,10 +47,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, onResetData, br
                     <span className="ml-auto text-xs text-gray-400 font-mono">{Math.round(branchSpacing * 100)}%</span>
                 </div>
                 <div className="px-1">
-                    <input 
-                        type="range" 
-                        min="0.5" 
-                        max="2.0" 
+                    <input
+                        type="range"
+                        min="0.5"
+                        max="2.0"
                         step="0.1"
                         value={branchSpacing}
                         onChange={(e) => onBranchSpacingChange(parseFloat(e.target.value))}
@@ -51,6 +60,38 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate, onResetData, br
                         <span>Compact</span>
                         <span>Normal</span>
                         <span>Wide</span>
+                    </div>
+                </div>
+             </div>
+          </div>
+        </section>
+
+        {/* HeatMap Section */}
+        <section>
+          <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3 ml-1">Heat Map</h2>
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+             <div className="p-4">
+                <div className="flex items-center mb-3">
+                    <div className="p-2 bg-green-100 rounded-lg text-green-600 mr-3">
+                        <Grid size={18} />
+                    </div>
+                    <span className="text-gray-700 font-medium">Cell Size</span>
+                    <span className="ml-auto text-xs text-gray-400 font-mono">{heatmapCellSize}px</span>
+                </div>
+                <div className="px-1">
+                    <input
+                        type="range"
+                        min="8"
+                        max="20"
+                        step="1"
+                        value={heatmapCellSize}
+                        onChange={(e) => onHeatmapCellSizeChange(parseFloat(e.target.value))}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-green-600"
+                    />
+                    <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+                        <span>Small</span>
+                        <span>Medium</span>
+                        <span>Large</span>
                     </div>
                 </div>
              </div>

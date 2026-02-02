@@ -15,7 +15,7 @@ interface GraphRendererProps {
 
 // Visual Constants
 const NODE_RADIUS = 7;
-const MINI_NODE_RADIUS = 3; 
+const MINI_NODE_RADIUS = 3;
 
 // Helper to get week number
 const getWeekNumber = (d: Date) => {
@@ -24,6 +24,29 @@ const getWeekNumber = (d: Date) => {
   date.setUTCDate(date.getUTCDate() + 4 - dayNum);
   const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
   return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+};
+
+// Helper to get week date range (Monday to Sunday)
+const getWeekDateRange = (date: Date): { start: Date; end: Date; label: string } => {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const dayNum = d.getUTCDay() || 7; // 1-7 (Mon-Sun)
+
+  // Get Monday of this week
+  const monday = new Date(d);
+  monday.setUTCDate(d.getUTCDate() - dayNum + 1);
+
+  // Get Sunday of this week
+  const sunday = new Date(monday);
+  sunday.setUTCDate(monday.getUTCDate() + 6);
+
+  const startStr = monday.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const endStr = sunday.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
+  return {
+    start: monday,
+    end: sunday,
+    label: `${startStr} - ${endStr}`
+  };
 };
 
 // Helper to generate a range of dates
@@ -231,15 +254,47 @@ const GraphRenderer: React.FC<GraphRendererProps> = ({
   // 4. Calculate Node Coordinates
   const nodes = useMemo(() => {
       if (!rows) return [];
-      return tasks.map(task => {
+
+      // 首先按日期分组
+      const tasksByDate = new Map<string, Task[]>();
+      tasks.forEach(task => {
+          const existing = tasksByDate.get(task.date) || [];
+          existing.push(task);
+          tasksByDate.set(task.date, existing);
+      });
+
+      // 为同日期的任务计算偏移
+      const nodesWithOffset = tasks.map(task => {
           const rowY = rowMap.get(task.date) || 0;
           const x = centerX + getBranchX(task.branchId);
-          
+
           const depth = getBranchDepth(task.branchId, branches);
           const isMini = checkIsMini(depth, granularity);
 
-          return { ...task, x, y: rowY, isMini, depth };
+          // 计算同日期同分支的偏移
+          const sameDateTasks = tasksByDate.get(task.date) || [];
+          const sameBranchTasks = sameDateTasks.filter(t => t.branchId === task.branchId);
+          const taskIndex = sameBranchTasks.indexOf(task);
+
+          // 同一分支同日期有多个任务时，垂直错开
+          let yOffset = 0;
+          if (sameBranchTasks.length > 1) {
+              const spacing = 12; // 节点间距
+              const totalHeight = (sameBranchTasks.length - 1) * spacing;
+              yOffset = (taskIndex * spacing) - (totalHeight / 2);
+          }
+
+          return {
+              ...task,
+              x,
+              y: rowY + yOffset,
+              isMini,
+              depth,
+              groupIndex: taskIndex // 用于同组任务的序号
+          };
       });
+
+      return nodesWithOffset;
   }, [tasks, rowMap, branchXMap, centerX, granularity, branches]);
 
   const nodeCoordMap = useMemo(() => {
@@ -275,7 +330,16 @@ const GraphRenderer: React.FC<GraphRendererProps> = ({
   branches.forEach(branch => {
       const branchNodes = nodes
         .filter(n => n.branchId === branch.id)
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        .sort((a, b) => {
+            // 首先按日期降序
+            const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
+            if (dateDiff !== 0) return dateDiff;
+            // 同一天按完成状态排序（completed 在前）
+            if (a.status !== b.status) {
+                return a.status === 'COMPLETED' ? -1 : 1;
+            }
+            return 0;
+        });
       
       const branchColor = branch.color;
       const restoreDateObj = branch.restoredDate ? new Date(branch.restoredDate) : null;
@@ -389,10 +453,11 @@ const GraphRenderer: React.FC<GraphRendererProps> = ({
       if (granularity === TimeGranularity.DAY) {
           if (weekNum !== lastWeekNum || year !== lastYear) {
              const markerY = row.y - (ROW_HEIGHT / 2);
+             const weekRange = getWeekDateRange(date);
              timeMarkers.push(
                 <g key={`week-${year}-${weekNum}`}>
                     <text x={centerX} y={markerY + 4} textAnchor="middle" fontSize="10" fill="#94a3b8" fontWeight="bold">
-                        W{weekNum}
+                        W{weekNum} <tspan fontSize="8" fill="#94a3b8" fontWeight="normal">({weekRange.label})</tspan>
                     </text>
                 </g>
              );
@@ -409,11 +474,12 @@ const GraphRenderer: React.FC<GraphRendererProps> = ({
       } else if (granularity === TimeGranularity.WEEK || granularity === TimeGranularity.BIWEEK) {
           if (weekNum !== lastWeekNum || year !== lastYear) {
               const markerY = row.y;
+              const weekRange = getWeekDateRange(date);
               timeMarkers.push(
                   <g key={`week-lg-${year}-${weekNum}`}>
                       <line x1={centerX - 15} y1={markerY} x2={centerX + 15} y2={markerY} stroke="#cbd5e1" strokeWidth={2} />
                       <text x={centerX - 20} y={markerY + 4} textAnchor="end" fontSize="11" fill="#64748b" fontWeight="bold">
-                          W{weekNum}
+                          W{weekNum} <tspan fontSize="9" fill="#94a3b8" fontWeight="normal">{weekRange.label}</tspan>
                       </text>
                   </g>
               );

@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { Plus, CheckCircle2, Circle, Calendar, ChevronDown } from 'lucide-react';
+import React from 'react';
+import { CheckCircle2, Circle, Calendar, MoreHorizontal, Search, X } from 'lucide-react';
 import { TaskStatus, Task, Branch, TimeGranularity } from '../types';
+import taskAddIcon from '../private_icons/task_add.svg';
 
 interface TasksPageProps {
   tasks: Task[];
@@ -8,6 +9,8 @@ interface TasksPageProps {
   onNewTask: () => void;
   onToggleTask: (taskId: string) => void;
   onTaskClick: (task: Task) => void;
+  granularity: TimeGranularity;
+  setGranularity: (g: TimeGranularity) => void;
 }
 
 const getWeekNumber = (d: Date) => {
@@ -18,16 +21,59 @@ const getWeekNumber = (d: Date) => {
     return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 };
 
-const TasksPage: React.FC<TasksPageProps> = ({ tasks, branches, onNewTask, onToggleTask, onTaskClick }) => {
-  const [granularity, setGranularity] = useState<TimeGranularity>(TimeGranularity.DAY);
+// Helper to get week date range (Monday to Sunday)
+const getWeekDateRange = (date: Date): string => {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const dayNum = d.getUTCDay() || 7; // 1-7 (Mon-Sun)
+
+  const monday = new Date(d);
+  monday.setUTCDate(d.getUTCDate() - dayNum + 1);
+
+  const sunday = new Date(monday);
+  sunday.setUTCDate(monday.getUTCDate() + 6);
+
+  const startStr = monday.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const endStr = sunday.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
+  return `${startStr} - ${endStr}`;
+};
+
+const TasksPage: React.FC<TasksPageProps> = ({ tasks, branches, onNewTask, onToggleTask, onTaskClick, granularity, setGranularity }) => {
+  const [showGranularityMenu, setShowGranularityMenu] = React.useState(false);
+  const [searchQuery, setSearchQuery] = React.useState('');
+
+  // Handle ESC key to clear search
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSearchQuery('');
+        if (showGranularityMenu) {
+          setShowGranularityMenu(false);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showGranularityMenu]);
 
   // Filter out Merge Commits from the list view
   const visibleTasks = tasks.filter(t => !t.isMergeCommit);
 
+  // Filter by search query
+  const filteredTasks = React.useMemo(() => {
+    if (!searchQuery.trim()) return visibleTasks;
+    const query = searchQuery.toLowerCase();
+    return visibleTasks.filter(t =>
+      t.title.toLowerCase().includes(query) ||
+      t.description?.toLowerCase().includes(query)
+    );
+  }, [visibleTasks, searchQuery]);
+
   const getBranch = (id: string) => branches.find(b => b.id === id);
 
   // Grouping Logic
-  const groupedTasks = visibleTasks.reduce((acc, task) => {
+  const groupedTasks = filteredTasks.reduce((acc, task) => {
     const d = new Date(task.date);
     let key = '';
     let label = '';
@@ -38,12 +84,12 @@ const TasksPage: React.FC<TasksPageProps> = ({ tasks, branches, onNewTask, onTog
         label = d.toDateString();
         sortKey = d.getTime();
     } else if (granularity === TimeGranularity.WEEK || granularity === TimeGranularity.BIWEEK) {
-        // BiWeek treated as Week for simple list viewing, or we can combine
         const week = getWeekNumber(d);
         const year = d.getFullYear();
+        const weekRange = getWeekDateRange(d);
         key = `${year}-W${week}`;
-        label = `Week ${week}, ${year}`;
-        sortKey = d.getTime(); // rough sort
+        label = `W${week} (${weekRange})`;
+        sortKey = d.getTime();
     } else if (granularity === TimeGranularity.MONTH) {
         const month = d.getMonth();
         const year = d.getFullYear();
@@ -67,18 +113,55 @@ const TasksPage: React.FC<TasksPageProps> = ({ tasks, branches, onNewTask, onTog
       <div className="bg-white px-6 py-4 pb-2 shadow-sm z-10 sticky top-0">
         <div className="flex justify-between items-center mb-2">
              <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
-             
+
+             <div className="flex items-center space-x-2">
+               {/* Search Input */}
+               <div className="relative">
+                 <input
+                   type="text"
+                   placeholder="Search tasks..."
+                   value={searchQuery}
+                   onChange={(e) => setSearchQuery(e.target.value)}
+                   className="w-32 md:w-48 pl-8 pr-3 py-1.5 text-sm bg-gray-100 border-none rounded-full focus:ring-2 focus:ring-blue-100 outline-none transition-all"
+                 />
+                 <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                 {searchQuery && (
+                   <button
+                     onClick={() => setSearchQuery('')}
+                     className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                   >
+                     <X size={14} />
+                   </button>
+                 )}
+               </div>
+             </div>
+
              {/* Granularity Selector */}
-             <div className="relative group">
-                 <button className="flex items-center space-x-1 text-sm font-semibold text-gray-600 bg-gray-100 px-3 py-1.5 rounded-full hover:bg-gray-200 transition-colors">
-                     <span>{granularity}</span>
-                     <ChevronDown size={14} />
+             <div className="relative">
+                 <button
+                     onClick={() => setShowGranularityMenu(!showGranularityMenu)}
+                     className="p-2 text-gray-500 hover:bg-gray-100 rounded-full flex items-center bg-gray-50"
+                 >
+                     <span className="text-xs font-semibold mr-1 text-gray-600 hidden md:block">{granularity}</span>
+                     <MoreHorizontal size={20} />
                  </button>
-                 <div className="absolute right-0 mt-2 w-32 bg-white rounded-lg shadow-xl border border-gray-100 py-1 hidden group-hover:block animate-in fade-in slide-in-from-top-2 duration-200 z-50">
-                    <button onClick={() => setGranularity(TimeGranularity.DAY)} className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-50 text-gray-700">Day</button>
-                    <button onClick={() => setGranularity(TimeGranularity.WEEK)} className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-50 text-gray-700">Week</button>
-                    <button onClick={() => setGranularity(TimeGranularity.MONTH)} className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-50 text-gray-700">Month</button>
-                 </div>
+                 {/* Dropdown for Granularity */}
+                 {showGranularityMenu && (
+                     <>
+                     <div className="fixed inset-0 z-40" onClick={() => setShowGranularityMenu(false)}></div>
+                     <div className="absolute right-0 mt-2 w-32 bg-white rounded-lg shadow-xl border border-gray-100 py-1 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                         {Object.values(TimeGranularity).map((g) => (
+                             <button
+                                 key={g}
+                                 onClick={() => { setGranularity(g); setShowGranularityMenu(false); }}
+                                 className={`block w-full text-left px-4 py-2 text-sm ${granularity === g ? 'bg-blue-50 text-blue-600 font-bold' : 'text-gray-700 hover:bg-gray-50'}`}
+                             >
+                                 {g}
+                             </button>
+                         ))}
+                     </div>
+                     </>
+                 )}
              </div>
         </div>
         <p className="text-xs text-gray-400">Manage your timeline</p>
@@ -144,17 +227,17 @@ const TasksPage: React.FC<TasksPageProps> = ({ tasks, branches, onNewTask, onTog
         
         {sortedGroups.length === 0 && (
           <div className="text-center py-10 text-gray-400">
-            No tasks found. Click + to create one.
+            {searchQuery ? 'No tasks match your search' : 'No tasks found. Click + to create one.'}
           </div>
         )}
       </div>
 
       {/* FAB New Task */}
-      <button 
+      <button
         onClick={onNewTask}
-        className="fixed bottom-24 right-4 bg-blue-600 text-white p-4 rounded-full shadow-lg shadow-blue-600/30 active:scale-95 transition-transform z-40"
+        className="fixed bottom-24 right-4 bg-blue-600 text-white p-4 rounded-full shadow-lg shadow-blue-600/30 active:scale-95 transition-transform z-40 hover:bg-blue-700"
       >
-        <Plus size={24} />
+        <img src={taskAddIcon} alt="Add Task" className="w-6 h-6 filter brightness-0 invert" />
       </button>
     </div>
   );
