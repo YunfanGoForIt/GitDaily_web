@@ -251,7 +251,7 @@ const GraphRenderer: React.FC<GraphRendererProps> = ({
 
   const getBranchX = (branchId: string) => branchXMap.get(branchId) || 0;
   
-  // 4. Calculate Node Coordinates
+  // 4. Calculate Node Coordinates with collision detection
   const nodes = useMemo(() => {
       if (!rows) return [];
 
@@ -263,7 +263,7 @@ const GraphRenderer: React.FC<GraphRendererProps> = ({
           tasksByDate.set(task.date, existing);
       });
 
-      // 为同日期的任务计算偏移
+      // 计算节点位置，同日期同分支的任务垂直错开
       const nodesWithOffset = tasks.map(task => {
           const rowY = rowMap.get(task.date) || 0;
           const x = centerX + getBranchX(task.branchId);
@@ -276,12 +276,16 @@ const GraphRenderer: React.FC<GraphRendererProps> = ({
           const sameBranchTasks = sameDateTasks.filter(t => t.branchId === task.branchId);
           const taskIndex = sameBranchTasks.indexOf(task);
 
-          // 同一分支同日期有多个任务时，垂直错开
+          // 同一分支同日期有多个任务时，以当天为中心上下错开
           let yOffset = 0;
           if (sameBranchTasks.length > 1) {
-              const spacing = 12; // 节点间距
+              const spacing = 16; // 节点垂直间距
               const totalHeight = (sameBranchTasks.length - 1) * spacing;
               yOffset = (taskIndex * spacing) - (totalHeight / 2);
+
+              // 限制偏移范围，确保不跨越日期边界（以当天为中心 ±45% 行高）
+              const maxOffset = ROW_HEIGHT * 0.45;
+              yOffset = Math.max(-maxOffset, Math.min(maxOffset, yOffset));
           }
 
           return {
@@ -290,12 +294,12 @@ const GraphRenderer: React.FC<GraphRendererProps> = ({
               y: rowY + yOffset,
               isMini,
               depth,
-              groupIndex: taskIndex // 用于同组任务的序号
+              groupIndex: taskIndex
           };
       });
 
       return nodesWithOffset;
-  }, [tasks, rowMap, branchXMap, centerX, granularity, branches]);
+  }, [tasks, rowMap, branchXMap, centerX, granularity, branches, ROW_HEIGHT]);
 
   const nodeCoordMap = useMemo(() => {
       const map = new Map<string, {x: number, y: number}>();
@@ -580,27 +584,32 @@ const GraphRenderer: React.FC<GraphRendererProps> = ({
                 {isMerge && !node.isMini && <circle cx={node.x} cy={node.y} r={3} fill={displayColor} />}
                 
                 {!node.isMini && (
-                    <g transform={`translate(${labelX}, ${node.y + 4})`}>
-                        <rect x={rectX} y="-14" width={adaptiveWidth} height="24" rx="4" fill="white" fillOpacity="0.8" className="shadow-sm" />
-                        <text 
-                            fontSize="9" 
-                            fill={isGhost ? "#9ca3af" : "#6b7280"} 
-                            className="font-mono uppercase" 
-                            y="-16"
-                            textAnchor={textAnchor}
-                        >
-                        {new Date(node.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                        </text>
-                        <text 
-                            fontWeight="600" 
-                            fontSize="11" 
-                            fill={isGhost ? "#9ca3af" : "#1f2937"}
-                            textAnchor={textAnchor}
-                            className="truncate"
-                        >
-                        {node.title.length > 20 ? node.title.substring(0, 18) + '...' : node.title}
-                        </text>
-                    </g>
+                    <>
+                        {/* 标题 - 在圆圈一侧 */}
+                        <g transform={`translate(${labelX}, ${node.y + 4})`}>
+                            <rect x={rectX} y="-10" width={adaptiveWidth} height="20" rx="4" fill="white" fillOpacity="0.9" className="shadow-sm" />
+                            <text
+                                fontWeight="600"
+                                fontSize="11"
+                                fill={isGhost ? "#9ca3af" : "#1f2937"}
+                                textAnchor={textAnchor}
+                                className="truncate"
+                            >
+                            {node.title.length > 20 ? node.title.substring(0, 18) + '...' : node.title}
+                            </text>
+                        </g>
+                        {/* 日期 - 在圆圈另一侧 */}
+                        <g transform={`translate(${isLeftOfCenter ? node.x + 12 : node.x - 12}, ${node.y + 4})`}>
+                            <text
+                                fontSize="9"
+                                fill={isGhost ? "#9ca3af" : "#6b7280"}
+                                className="font-mono uppercase"
+                                textAnchor={isLeftOfCenter ? "start" : "end"}
+                            >
+                            {new Date(node.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                            </text>
+                        </g>
+                    </>
                 )}
               </g>
             );
