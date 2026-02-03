@@ -1,0 +1,12 @@
+{
+	"appId": "com.gitdaily.app",
+	"appName": "GitDaily",
+	"webDir": "dist",
+	"server": {
+		"cleartext": true
+	},
+	"android": {
+		"allowMixedContent": true
+	},
+	"packageClassList": []
+}
