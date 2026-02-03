@@ -113,6 +113,30 @@ const App: React.FC = () => {
     }
   };
 
+  const handleCreateTaskFromTable = async (taskData: { title: string; date: string; description?: string; branchId: string }) => {
+    console.log('[DEBUG] handleCreateTaskFromTable called with:', taskData);
+    try {
+      const newTask: Task = {
+        id: `t${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        ...taskData,
+        status: TaskStatus.PLANNED
+      };
+      console.log('[DEBUG] Creating task:', newTask);
+
+      await taskApi.create(newTask);
+      console.log('[DEBUG] Task created successfully');
+
+      setTasks(prev => {
+        const updated = [newTask, ...prev];
+        console.log('[DEBUG] setTasks called, new count:', updated.length);
+        return updated;
+      });
+    } catch (err) {
+      console.error('[DEBUG] Failed to create task:', err);
+      throw err;
+    }
+  };
+
   const handleUpdateTask = async (taskId: string, updates: Partial<Task>) => {
     if (updates.status === TaskStatus.COMPLETED) {
       setPendingAction({ type: 'task', id: taskId });
@@ -360,6 +384,8 @@ const App: React.FC = () => {
             onDelete={handleDeleteBranch}
             onMerge={handleMergeBranchRequest}
             onNewTask={() => { setIsTaskModalOpen(true); }}
+            onCreateTask={handleCreateTaskFromTable}
+            onUpdateTask={handleUpdateTask}
             branchSpacing={branchSpacing}
           />
         );
@@ -371,6 +397,8 @@ const App: React.FC = () => {
             onNewTask={() => { setIsTaskModalOpen(true); }}
             onToggleTask={handleToggleTask}
             onTaskClick={handleTaskClick}
+            onCreateTask={handleCreateTaskFromTable}
+            onUpdateTask={handleUpdateTask}
             granularity={granularity}
             setGranularity={setGranularity}
           />

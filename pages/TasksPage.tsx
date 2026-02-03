@@ -1,7 +1,10 @@
-import React from 'react';
-import { CheckCircle2, Circle, Calendar, MoreHorizontal, Search, X } from 'lucide-react';
+import React, { useState } from 'react';
+import { CheckCircle2, Circle, Calendar, MoreHorizontal, Search, X, List, Table as TableIcon } from 'lucide-react';
+import MultiBranchTaskTable from '../components/MultiBranchTaskTable';
 import { TaskStatus, Task, Branch, TimeGranularity } from '../types';
 import taskAddIcon from '../private_icons/task_add.svg';
+
+type ViewMode = 'list' | 'table';
 
 interface TasksPageProps {
   tasks: Task[];
@@ -9,6 +12,8 @@ interface TasksPageProps {
   onNewTask: () => void;
   onToggleTask: (taskId: string) => void;
   onTaskClick: (task: Task) => void;
+  onCreateTask: (task: { title: string; date: string; description?: string; branchId: string }) => Promise<void>;
+  onUpdateTask: (taskId: string, updates: Partial<Task>) => void;
   granularity: TimeGranularity;
   setGranularity: (g: TimeGranularity) => void;
 }
@@ -38,9 +43,10 @@ const getWeekDateRange = (date: Date): string => {
   return `${startStr} - ${endStr}`;
 };
 
-const TasksPage: React.FC<TasksPageProps> = ({ tasks, branches, onNewTask, onToggleTask, onTaskClick, granularity, setGranularity }) => {
+const TasksPage: React.FC<TasksPageProps> = ({ tasks, branches, onNewTask, onToggleTask, onTaskClick, onCreateTask, onUpdateTask, granularity, setGranularity }) => {
   const [showGranularityMenu, setShowGranularityMenu] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState('');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
 
   // Handle ESC key to clear search
   React.useEffect(() => {
@@ -115,6 +121,32 @@ const TasksPage: React.FC<TasksPageProps> = ({ tasks, branches, onNewTask, onTog
              <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
 
              <div className="flex items-center space-x-2">
+               {/* View Mode Toggle */}
+               <div className="flex items-center bg-gray-100 rounded-lg p-0.5 mr-2">
+                 <button
+                   onClick={() => setViewMode('list')}
+                   className={`flex items-center px-2 py-1 rounded-md text-xs transition-all ${
+                     viewMode === 'list'
+                       ? 'bg-white text-gray-800 shadow-sm'
+                       : 'text-gray-500 hover:text-gray-700'
+                   }`}
+                 >
+                   <List size={14} className="mr-1" />
+                   List
+                 </button>
+                 <button
+                   onClick={() => setViewMode('table')}
+                   className={`flex items-center px-2 py-1 rounded-md text-xs transition-all ${
+                     viewMode === 'table'
+                       ? 'bg-white text-gray-800 shadow-sm'
+                       : 'text-gray-500 hover:text-gray-700'
+                   }`}
+                 >
+                   <TableIcon size={14} className="mr-1" />
+                   Table
+                 </button>
+               </div>
+
                {/* Search Input */}
                <div className="relative">
                  <input
@@ -168,66 +200,83 @@ const TasksPage: React.FC<TasksPageProps> = ({ tasks, branches, onNewTask, onTog
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 pb-24 no-scrollbar">
-        {sortedGroups.map((group) => (
-          <div key={group.label} className="mb-4">
-            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1 flex items-center bg-gray-50 sticky top-0 py-1 z-0">
-              <Calendar size={12} className="mr-1.5"/>
-              {group.label}
-            </h2>
-            <div className="space-y-2">
-              {group.tasks.map(task => {
-                const branch = getBranch(task.branchId);
-                const isCompleted = task.status === TaskStatus.COMPLETED;
-                const branchColor = branch?.color || '#999';
-                const dateDisplay = new Date(task.date).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' });
+        {viewMode === 'list' ? (
+          // List View
+          <>
+            {sortedGroups.map((group) => (
+              <div key={group.label} className="mb-4">
+                <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1 flex items-center bg-gray-50 sticky top-0 py-1 z-0">
+                  <Calendar size={12} className="mr-1.5"/>
+                  {group.label}
+                </h2>
+                <div className="space-y-2">
+                  {group.tasks.map(task => {
+                    const branch = getBranch(task.branchId);
+                    const isCompleted = task.status === TaskStatus.COMPLETED;
+                    const branchColor = branch?.color || '#999';
+                    const dateDisplay = new Date(task.date).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' });
 
-                return (
-                  <div 
-                    key={task.id} 
-                    className="bg-white p-3 rounded-lg shadow-sm border border-gray-100 flex items-start cursor-pointer hover:bg-gray-50 transition-all active:scale-[0.99]"
-                    onClick={() => onTaskClick(task)}
-                  >
-                    <button 
-                      className="mt-0.5 mr-3 flex-shrink-0 transition-transform active:scale-90 focus:outline-none"
-                      onClick={(e) => { e.stopPropagation(); onToggleTask(task.id); }}
-                    >
-                      {isCompleted ? (
-                        <CheckCircle2 size={20} color={branchColor} className="fill-current bg-white rounded-full" />
-                      ) : (
-                        <Circle size={20} className="text-gray-300 hover:text-gray-400" />
-                      )}
-                    </button>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-start">
-                          <h3 className={`text-sm font-semibold truncate pr-2 ${isCompleted ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
-                            {task.title}
-                          </h3>
-                          <span className="text-[10px] text-gray-400 font-mono whitespace-nowrap bg-gray-50 px-1.5 py-0.5 rounded ml-1">
-                              {dateDisplay}
-                          </span>
-                      </div>
-                      
-                      <div className="flex items-center mt-1">
-                          <div className="flex items-center px-1.5 py-0.5 rounded bg-gray-50 mr-2 border border-gray-100 max-w-[100px]">
-                            <div className="w-1.5 h-1.5 rounded-full mr-1.5 flex-shrink-0" style={{ backgroundColor: branchColor }}></div>
-                            <span className="text-[10px] font-medium text-gray-500 truncate">{branch?.name}</span>
-                          </div>
-                          {task.description && (
-                             <p className="text-xs text-gray-400 truncate flex-1">{task.description}</p>
+                    return (
+                      <div
+                        key={task.id}
+                        className="bg-white p-3 rounded-lg shadow-sm border border-gray-100 flex items-start cursor-pointer hover:bg-gray-50 transition-all active:scale-[0.99]"
+                        onClick={() => onTaskClick(task)}
+                      >
+                        <button
+                          className="mt-0.5 mr-3 flex-shrink-0 transition-transform active:scale-90 focus:outline-none"
+                          onClick={(e) => { e.stopPropagation(); onToggleTask(task.id); }}
+                        >
+                          {isCompleted ? (
+                            <CheckCircle2 size={20} color={branchColor} className="fill-current bg-white rounded-full" />
+                          ) : (
+                            <Circle size={20} className="text-gray-300 hover:text-gray-400" />
                           )}
+                        </button>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-start">
+                              <h3 className={`text-sm font-semibold truncate pr-2 ${isCompleted ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
+                                {task.title}
+                              </h3>
+                              <span className="text-[10px] text-gray-400 font-mono whitespace-nowrap bg-gray-50 px-1.5 py-0.5 rounded ml-1">
+                                  {dateDisplay}
+                              </span>
+                          </div>
+
+                          <div className="flex items-center mt-1">
+                              <div className="flex items-center px-1.5 py-0.5 rounded bg-gray-50 mr-2 border border-gray-100 max-w-[100px]">
+                                <div className="w-1.5 h-1.5 rounded-full mr-1.5 flex-shrink-0" style={{ backgroundColor: branchColor }}></div>
+                                <span className="text-[10px] font-medium text-gray-500 truncate">{branch?.name}</span>
+                              </div>
+                              {task.description && (
+                                 <p className="text-xs text-gray-400 truncate flex-1">{task.description}</p>
+                              )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-        
-        {sortedGroups.length === 0 && (
-          <div className="text-center py-10 text-gray-400">
-            {searchQuery ? 'No tasks match your search' : 'No tasks found. Click + to create one.'}
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+
+            {sortedGroups.length === 0 && (
+              <div className="text-center py-10 text-gray-400">
+                {searchQuery ? 'No tasks match your search' : 'No tasks found. Click + to create one.'}
+              </div>
+            )}
+          </>
+        ) : (
+          // Table View
+          <div className="bg-white rounded-xl border border-gray-100 overflow-hidden h-full">
+            <MultiBranchTaskTable
+              tasks={filteredTasks}
+              branches={branches}
+              onCreateTask={onCreateTask}
+              onUpdateTask={onUpdateTask}
+              onTaskClick={onTaskClick}
+              onToggleTask={onToggleTask}
+            />
           </div>
         )}
       </div>

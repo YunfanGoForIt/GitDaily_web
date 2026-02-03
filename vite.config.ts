@@ -7,6 +7,7 @@ export default defineConfig(({ mode }) => {
     return {
       server: {
         port: 3000,
+        allowedHosts: ['gitdaily.yunfan88.top'],
         host: '0.0.0.0',
         proxy: {
           '/api': {

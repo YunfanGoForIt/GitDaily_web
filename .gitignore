@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+.claude/
+
+# SQLite
+*.db-shm
+*.db-wal
