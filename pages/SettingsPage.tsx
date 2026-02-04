@@ -5,6 +5,7 @@ import { AppView } from '../types';
 interface SettingsPageProps {
   onNavigate: (view: AppView) => void;
   onResetData: () => void;
+  deviceType?: 'desktop' | 'mobile';
   branchSpacing: number;
   onBranchSpacingChange: (val: number) => void;
   heatmapCellSize: number;
@@ -14,11 +15,14 @@ interface SettingsPageProps {
 const SettingsPage: React.FC<SettingsPageProps> = ({
   onNavigate,
   onResetData,
+  deviceType = 'desktop',
   branchSpacing,
   onBranchSpacingChange,
   heatmapCellSize,
   onHeatmapCellSizeChange
 }) => {
+  // Device type display label
+  const deviceLabel = deviceType === 'mobile' ? 'Mobile' : 'Desktop';
   return (
     <div className="h-full bg-gray-50 flex flex-col p-6 overflow-y-auto no-scrollbar">
        {/* Header */}
@@ -30,6 +34,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
           <ArrowLeft size={24} />
         </button>
         <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+        <span className="ml-3 px-2 py-1 bg-blue-100 text-blue-600 text-xs font-medium rounded-full">
+          {deviceLabel}
+        </span>
       </div>
 
       <div className="space-y-6">

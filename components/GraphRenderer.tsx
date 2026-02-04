@@ -586,11 +586,11 @@ const GraphRenderer: React.FC<GraphRendererProps> = ({
                 {!node.isMini && (
                     <>
                         {/* 标题 - 在圆圈一侧 */}
-                        <g transform={`translate(${labelX}, ${node.y + 4})`}>
-                            <rect x={rectX} y="-10" width={adaptiveWidth} height="20" rx="4" fill="white" fillOpacity="0.9" className="shadow-sm" />
+                        {/* 移动端使用倾斜布局，避免长文字遮挡其他branch */}
+                        <g transform={`translate(${labelX}, ${node.y + 4}) ${!useCenteredLayout ? 'rotate(-30)' : ''}`}>
                             <text
                                 fontWeight="600"
-                                fontSize="11"
+                                fontSize={useCenteredLayout ? "11" : "10"}
                                 fill={isGhost ? "#9ca3af" : "#1f2937"}
                                 textAnchor={textAnchor}
                                 className="truncate"

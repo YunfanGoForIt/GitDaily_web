@@ -32,7 +32,7 @@
 import express from 'express';
 import cors from 'cors';
 import { DatabaseManager } from './db/database';
-import { BranchRepository, TaskRepository, UserRepository } from './db/repository';
+import { BranchRepository, TaskRepository, UserRepository, DeviceSettingsRepository } from './db/repository';
 
 const DB_PATH = './data/gitdaily.db';
 
@@ -48,6 +48,7 @@ let dbManager: DatabaseManager | null = null;
 let branchesRepo: BranchRepository | null = null;
 let tasksRepo: TaskRepository | null = null;
 let userRepo: UserRepository | null = null;
+let deviceSettingsRepo: DeviceSettingsRepository | null = null;
 
 async function initRepos() {
   if (!dbManager) {
@@ -55,6 +56,7 @@ async function initRepos() {
     branchesRepo = new BranchRepository(dbManager.getDb());
     tasksRepo = new TaskRepository(dbManager.getDb());
     userRepo = new UserRepository(dbManager.getDb());
+    deviceSettingsRepo = new DeviceSettingsRepository(dbManager.getDb());
   }
 }
 
@@ -145,6 +147,27 @@ app.get('/api/user/profile', async (req, res) => {
 app.put('/api/user/profile', async (req, res) => {
   await initRepos();
   userRepo!.updateProfile(req.body);
+  res.json({ success: true });
+});
+
+// ==================== Settings ====================
+app.get('/api/settings', async (req, res) => {
+  await initRepos();
+  const deviceType = (req.query.deviceType as string) || 'desktop';
+  const settings = deviceSettingsRepo!.getByDeviceType(deviceType as 'desktop' | 'mobile');
+  if (!settings) {
+    return res.status(404).json({ error: 'Settings not found for device type' });
+  }
+  res.json(settings);
+});
+
+app.put('/api/settings', async (req, res) => {
+  await initRepos();
+  const { deviceType, ...updates } = req.body;
+  if (!deviceType) {
+    return res.status(400).json({ error: 'deviceType is required' });
+  }
+  deviceSettingsRepo!.update(deviceType, updates);
   res.json({ success: true });
 });
 

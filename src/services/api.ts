@@ -86,6 +86,25 @@ export const userApi = {
     }),
 };
 
+// ==================== Settings API ====================
+export interface Settings {
+  deviceType: 'desktop' | 'mobile';
+  branchSpacing: number;
+  heatmapCellSize: number;
+  granularity: string;
+  updatedAt?: string;
+}
+
+export const settingsApi = {
+  get: (deviceType: 'desktop' | 'mobile') =>
+    fetchApi<Settings>(`/settings?deviceType=${deviceType}`),
+  update: (deviceType: string, settings: Partial<Settings>) =>
+    fetchApi('/settings', {
+      method: 'PUT',
+      body: JSON.stringify({ deviceType, ...settings }),
+    }),
+};
+
 // ==================== Admin API ====================
 export const adminApi = {
   createBackup: () =>
@@ -143,4 +162,4 @@ interface DatabaseStatus {
 }
 
 // 导出类型供其他组件使用
-export type { Branch, Task, UserProfile, DatabaseStatus };
+export type { Branch, Task, UserProfile, DatabaseStatus, Settings };

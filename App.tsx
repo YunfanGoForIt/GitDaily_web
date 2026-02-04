@@ -12,7 +12,8 @@ import NewTaskModal from './components/NewTaskModal';
 import TaskDetailPanel from './components/TaskDetailPanel';
 import CommitMessageModal from './components/CommitMessageModal';
 import { Task, AppView, Branch, UserProfile, TaskStatus, TimeGranularity } from './types';
-import { branchApi, taskApi, userApi } from './src/services/api';
+import { branchApi, taskApi, userApi, settingsApi } from './src/services/api';
+import { getDeviceType } from './src/utils/device';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>('graph');
@@ -34,6 +35,7 @@ const App: React.FC = () => {
   const [user, setUser] = useState<UserProfile | null>(null);
 
   // Settings State
+  const [deviceType, setDeviceType] = useState<'desktop' | 'mobile'>('desktop');
   const [branchSpacing, setBranchSpacing] = useState(1.0);
   const [granularity, setGranularity] = useState<TimeGranularity>(TimeGranularity.DAY);
   const [heatmapCellSize, setHeatmapCellSize] = useState(18);
@@ -47,14 +49,29 @@ const App: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const [branchesData, tasksData, userData] = await Promise.all([
+
+      // Detect device type
+      const detectedDeviceType = getDeviceType();
+      setDeviceType(detectedDeviceType);
+
+      // Fetch all data including device-specific settings
+      const [branchesData, tasksData, userData, settingsData] = await Promise.all([
         branchApi.getAll(),
         taskApi.getAll(),
         userApi.getProfile(),
+        settingsApi.get(detectedDeviceType),
       ]);
+
       setBranches(branchesData);
       setTasks(tasksData);
       setUser(userData);
+
+      // Apply device-specific settings
+      if (settingsData) {
+        setBranchSpacing(settingsData.branchSpacing);
+        setHeatmapCellSize(settingsData.heatmapCellSize);
+        setGranularity(settingsData.granularity as TimeGranularity);
+      }
     } catch (err) {
       console.error('Failed to fetch data:', err);
       setError('Failed to load data. Please check if the API server is running.');
@@ -309,6 +326,34 @@ const App: React.FC = () => {
     setCurrentView('me');
   };
 
+  // ==================== Settings Handlers with Auto-Save ====================
+  const handleBranchSpacingChange = async (val: number) => {
+    setBranchSpacing(val);
+    try {
+      await settingsApi.update(deviceType, { branchSpacing: val });
+    } catch (err) {
+      console.error('Failed to save branch spacing setting:', err);
+    }
+  };
+
+  const handleHeatmapCellSizeChange = async (val: number) => {
+    setHeatmapCellSize(val);
+    try {
+      await settingsApi.update(deviceType, { heatmapCellSize: val });
+    } catch (err) {
+      console.error('Failed to save heatmap cell size setting:', err);
+    }
+  };
+
+  const handleGranularityChange = async (val: TimeGranularity) => {
+    setGranularity(val);
+    try {
+      await settingsApi.update(deviceType, { granularity: val });
+    } catch (err) {
+      console.error('Failed to save granularity setting:', err);
+    }
+  };
+
   // ==================== Render ====================
   if (loading) {
     return (
@@ -356,7 +401,7 @@ const App: React.FC = () => {
             onBranchClick={handleBranchClick}
             branchSpacing={branchSpacing}
             granularity={granularity}
-            setGranularity={setGranularity}
+            setGranularity={handleGranularityChange}
           />
         );
       case 'branch-detail':
@@ -369,7 +414,7 @@ const App: React.FC = () => {
             onBranchClick={handleBranchClick}
             branchSpacing={branchSpacing}
             granularity={granularity}
-            setGranularity={setGranularity}
+            setGranularity={handleGranularityChange}
           />
         );
         return (
@@ -400,7 +445,7 @@ const App: React.FC = () => {
             onCreateTask={handleCreateTaskFromTable}
             onUpdateTask={handleUpdateTask}
             granularity={granularity}
-            setGranularity={setGranularity}
+            setGranularity={handleGranularityChange}
           />
         );
       case 'me':
@@ -433,10 +478,11 @@ const App: React.FC = () => {
           <SettingsPage
             onNavigate={setCurrentView}
             onResetData={handleResetData}
+            deviceType={deviceType}
             branchSpacing={branchSpacing}
-            onBranchSpacingChange={setBranchSpacing}
+            onBranchSpacingChange={handleBranchSpacingChange}
             heatmapCellSize={heatmapCellSize}
-            onHeatmapCellSizeChange={setHeatmapCellSize}
+            onHeatmapCellSizeChange={handleHeatmapCellSizeChange}
           />
         );
       default:

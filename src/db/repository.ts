@@ -132,3 +132,55 @@ export class UserRepository {
     return stmt.run(user.name, user.handle, user.avatar, user.bio);
   }
 }
+
+export interface DeviceSettings {
+  deviceType: 'desktop' | 'mobile';
+  branchSpacing: number;
+  heatmapCellSize: number;
+  granularity: string;
+  updatedAt?: string;
+}
+
+export class DeviceSettingsRepository {
+  constructor(private db: Database.Database) {}
+
+  getByDeviceType(deviceType: 'desktop' | 'mobile'): DeviceSettings | undefined {
+    const row = this.db.prepare(
+      'SELECT device_type, branch_spacing, heatmap_cell_size, granularity, updated_at FROM device_settings WHERE device_type = ?'
+    ).get(deviceType) as any;
+
+    if (!row) return undefined;
+
+    return {
+      deviceType: row.device_type,
+      branchSpacing: row.branch_spacing,
+      heatmapCellSize: row.heatmap_cell_size,
+      granularity: row.granularity,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  update(deviceType: string, updates: Partial<DeviceSettings>) {
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    if (updates.branchSpacing !== undefined) {
+      fields.push('branch_spacing = ?');
+      values.push(updates.branchSpacing);
+    }
+    if (updates.heatmapCellSize !== undefined) {
+      fields.push('heatmap_cell_size = ?');
+      values.push(updates.heatmapCellSize);
+    }
+    if (updates.granularity !== undefined) {
+      fields.push('granularity = ?');
+      values.push(updates.granularity);
+    }
+
+    if (fields.length === 0) return;
+
+    values.push(deviceType);
+    const stmt = this.db.prepare(`UPDATE device_settings SET ${fields.join(', ')} WHERE device_type = ?`);
+    stmt.run(...values);
+  }
+}

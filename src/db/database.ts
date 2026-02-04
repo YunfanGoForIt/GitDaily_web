@@ -21,6 +21,7 @@ const SCHEMA_VERSIONS = {
   V1: '1.0.0',      // 初始版本
   V2: '1.1.0',      // 添加用户设置表
   V3: '1.2.0',      // 添加任务标签
+  V4: '1.3.0',      // 添加设备特定设置表
   // 未来版本继续添加...
 } as const;
 
@@ -87,6 +88,57 @@ const MIGRATIONS: Migration[] = [
       db.exec(`
         DROP TABLE IF EXISTS task_tags;
         DROP TABLE IF EXISTS tags;
+      `);
+    }
+  },
+
+  // V3 -> V4: 添加设备特定设置表
+  {
+    from: SCHEMA_VERSIONS.V3,
+    to: SCHEMA_VERSIONS.V4,
+    up: (db) => {
+      db.exec(`
+        -- 删除旧的简单key-value设置表
+        DROP TABLE IF EXISTS user_settings;
+
+        -- 创建设备特定设置表
+        CREATE TABLE IF NOT EXISTS device_settings (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          device_type TEXT NOT NULL UNIQUE, -- 'desktop' | 'mobile'
+          branch_spacing REAL DEFAULT 1.0,
+          heatmap_cell_size INTEGER DEFAULT 18,
+          granularity TEXT DEFAULT 'DAY',
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+
+        -- 插入桌面端默认设置
+        INSERT INTO device_settings (device_type, branch_spacing, heatmap_cell_size, granularity) VALUES
+          ('desktop', 1.0, 18, 'DAY');
+
+        -- 插入移动端默认设置（更紧凑）
+        INSERT INTO device_settings (device_type, branch_spacing, heatmap_cell_size, granularity) VALUES
+          ('mobile', 0.8, 16, 'DAY');
+
+        -- 创建设置表更新时间触发器
+        CREATE TRIGGER IF NOT EXISTS update_device_settings_updated_at
+          AFTER UPDATE ON device_settings
+          FOR EACH ROW
+          BEGIN
+            UPDATE device_settings SET updated_at = datetime('now') WHERE id = NEW.id;
+          END;
+      `);
+    },
+    down: (db) => {
+      db.exec(`
+        DROP TRIGGER IF EXISTS update_device_settings_updated_at;
+        DROP TABLE IF EXISTS device_settings;
+
+        -- 恢复旧表结构
+        CREATE TABLE IF NOT EXISTS user_settings (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL,
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
       `);
     }
   },
