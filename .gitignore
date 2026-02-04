@@ -29,3 +29,6 @@ screenshots/
 *.db-shm
 *.db-wal
 *.db
+
+# Data directory (backups, local db)
+data/
