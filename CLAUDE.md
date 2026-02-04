@@ -38,6 +38,10 @@ npm run db:migrate   # Database migration/management
 - **Path Alias:** `@/` maps to project root
 - **Mobile:** Capacitor 8 (Android & iOS)
 
+### ESM-Only Configuration
+
+This project uses ES Modules exclusively (`"type": "module"` in package.json). All imports must use `.js` extensions for local files, even when importing TypeScript files. The `tsx` loader handles TypeScript execution at runtime.
+
 ### Application Structure
 
 ```
@@ -177,3 +181,17 @@ SVG-based hierarchical layout in `GraphRenderer`:
 - **index.html** - ESM imports via import maps (esm.sh CDN), Tailwind via CDN
 - **capacitor.config.ts** - Capacitor mobile app configuration
 - **docs/DATABASE.md** - Complete database documentation
+
+### Import Map (index.html)
+
+Dependencies are loaded via esm.sh CDN using import maps (no node_modules bundling required for deps):
+
+```html
+"imports": {
+  "react": "https://esm.sh/react@19.2.4",
+  "react-dom/client": "https://esm.sh/react-dom@19.2.4/client",
+  "lucide-react": "https://esm.sh/lucide-react@0.563.0?external=react"
+}
+```
+
+Only server-side packages (better-sqlite3, express, cors) and dev tools are in package.json.
