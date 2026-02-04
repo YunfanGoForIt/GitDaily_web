@@ -36,6 +36,7 @@ npm run db:migrate   # Database migration/management
 - **Database:** SQLite with better-sqlite3
 - **Backend:** Express.js REST API
 - **Path Alias:** `@/` maps to project root
+- **Mobile:** Capacitor 8 (Android & iOS)
 
 ### Application Structure
 
@@ -49,13 +50,20 @@ GitDaily/
 │   │   ├── database.ts     # DatabaseManager with migration engine
 │   │   ├── repository.ts   # Data access layer (DAL)
 │   │   └── cli.ts          # Database CLI tool
+│   ├── utils/
+│   │   └── device.ts       # Device detection (desktop/mobile/native)
 │   ├── App.tsx             # Main app with state management
 │   └── ...
-├── data/
-│   ├── gitdaily.db         # SQLite database file
-│   └── backups/            # Auto backups
+├── pages/                  # Page components
+├── components/             # Reusable components
+├── data/                   # SQLite database (gitignore'd)
+├── android/                # Capacitor Android project
+├── ios/                    # Capacitor iOS project
 ├── docs/
 │   └── DATABASE.md         # Database documentation
+├── build-android.sh        # Android build script
+├── build-ios.sh            # iOS build script
+├── capacitor.config.ts     # Capacitor configuration
 └── start.sh                # Startup script
 ```
 
@@ -81,6 +89,8 @@ Browser (React) <--> Vite Proxy (/api) <--> Express API (localhost:3001) <--> SQ
 | DELETE | /api/tasks/:id | Delete task |
 | GET | /api/user/profile | Get user profile |
 | PUT | /api/user/profile | Update user profile |
+| GET | /api/settings | Get device-specific settings |
+| PUT | /api/settings | Update device settings |
 | POST | /api/admin/backup | Create database backup |
 | POST | /api/admin/upgrade | Execute migrations |
 
@@ -91,6 +101,16 @@ All shared state lives in `App.tsx` and flows downward via props:
 - All CRUD operations call API service layer
 - Optimistic UI updates for better UX
 - Loading and error states handled
+
+### Device-Specific Settings
+
+Settings are stored per device type (`desktop` | `mobile`):
+- **Detection:** `src/utils/device.ts` uses Capacitor API + screen width
+- **Storage:** `device_settings` table with separate defaults
+  - Desktop: branchSpacing=1.0, heatmapCellSize=18
+  - Mobile: branchSpacing=0.8, heatmapCellSize=16
+- **Auto-save:** Changes saved to DB immediately via API
+- **Native Apps:** Capacitor apps detected as `mobile` type
 
 ### Data Model
 
@@ -131,9 +151,29 @@ SVG-based hierarchical layout in `GraphRenderer`:
 - Nodes positioned by date within each branch
 - Supports multiple time granularities
 
+### Mobile Build (Capacitor)
+
+```bash
+# Build Android APK
+./build-android.sh
+
+# Build iOS (macOS only)
+./build-ios.sh
+```
+
+**Prerequisites:**
+- Android: Android Studio, SDK 34
+- iOS: Xcode 15+, macOS
+
+**Capacitor Config:** `capacitor.config.ts`
+- `appId: 'com.gitdaily.app'`
+- Auto-detected as `mobile` device type
+- Uses same API endpoints as web
+
 ### Configuration Files
 
 - **vite.config.ts** - Vite config with React plugin, proxy, path alias, port 3000
 - **tsconfig.json** - TypeScript target ES2022, jsx react-jsx, paths `@/*` → `./*`
 - **index.html** - ESM imports via import maps (esm.sh CDN), Tailwind via CDN
+- **capacitor.config.ts** - Capacitor mobile app configuration
 - **docs/DATABASE.md** - Complete database documentation

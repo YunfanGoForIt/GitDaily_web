@@ -61,6 +61,12 @@ GitDaily 将这些概念可视化，让你能：
 - 头像本地上传
 - 统计总提交数
 
+### 设备特定设置
+- 自动检测设备类型（桌面/移动/Capacitor App）
+- 独立存储桌面和移动端设置
+- 设置自动持久化到数据库
+- 移动端默认更紧凑的布局
+
 ---
 
 ## 技术栈
@@ -73,6 +79,7 @@ GitDaily 将这些概念可视化，让你能：
 | 后端 | Express.js REST API |
 | 数据库 | SQLite (better-sqlite3) |
 | 图标 | Lucide React + 自定义 SVG |
+| 移动端 | Capacitor 8 (Android & iOS) |
 
 ---
 
@@ -93,6 +100,20 @@ npm run dev        # 前端 (端口 3000)
 ```
 
 访问 http://localhost:3000
+
+### 构建移动应用
+
+```bash
+# 构建 Android APK
+./build-android.sh
+
+# 构建 iOS App（macOS  only）
+./build-ios.sh
+```
+
+构建输出：
+- Android: `android/app/build/outputs/apk/release/app-release.apk`
+- iOS: 使用 Xcode 打开 `ios/App/App.xcodeproj` 归档发布
 
 ### 环境变量
 
@@ -203,13 +224,19 @@ GitDaily/
 │   │   ├── database.ts     # DatabaseManager + 迁移
 │   │   ├── repository.ts   # 数据访问层
 │   │   └── cli.ts          # CLI 工具
+│   ├── utils/
+│   │   └── device.ts       # 设备类型检测
 │   ├── components/         # React 组件
 │   └── pages/              # 页面
-├── data/                   # 数据库文件
-│   └── gitdaily.db
+├── android/                # Capacitor Android 项目
+├── ios/                    # Capacitor iOS 项目
+├── data/                   # 数据库文件（gitignore'd）
 ├── docs/
 │   └── DATABASE.md         # 数据库文档
 ├── private_icons/          # 自定义图标
+├── build-android.sh        # Android 构建脚本
+├── build-ios.sh            # iOS 构建脚本
+├── capacitor.config.ts     # Capacitor 配置
 └── start.sh                # 启动脚本
 ```
 
